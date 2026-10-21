@@ -1,57 +1,56 @@
 # ResumeFit
 
-面向 ML / 算法（搜广推）/ LLM / 多模态 / 数据工程岗位的简历投递自检工具。工具先模拟海外 ATS 机筛、HR 初筛和用人经理技术评估，给出百分制适配度；分数不达标时，自动生成贴合 JD 的 STAR 结构改写，并提供中英学术化互译。
+A self-check tool for matching a resume against a job description. Built for ML, search and recommendation, LLM, multimodal, and data engineering roles.
 
-## 功能
+It scores a resume the way an applicant tracking system, a recruiter, and a hiring manager would read it. When the score falls short, it rewrites weak bullets into STAR format and translates between Chinese and English.
 
-- **规则引擎（离线，秒级响应）**：关键词覆盖（区分必备项与加分项）、硬性门槛检测（年限、学历、英语、论文，均从 JD 自动提取）、ATS 可解析性检测（无文字 PDF、双栏表格、图标符号、日期格式不统一、联系方式缺失等）、STAR 表述质量分析（量化比例、强动词占比、口语化弱表述识别及替换建议，中英文词库各自维护）、岗位加分信号（顶会论文、开源贡献、竞赛获奖、线上业务落地）。口语化弱表述的替换建议完全基于词库匹配，不调用模型。
-- **AI 语义评估（需配置模型）**：模拟 HR 六秒初筛与用人经理技术面视角，输出结论、级别匹配度、能力维度雷达、优势与差距、风险信号、预测面试问题。改写与互译同样依赖模型，因为二者需要重新组织句子结构、补全缺失的 S/T/A/R 要素，规则匹配无法完成这类生成任务。
-- **STAR 改写**：逐条给出原文与改写对照，标注 S/T/A/R 拆解和命中的 JD 关键词。改写不虚构经历；缺失的数据用 `[X%]` 占位符标出，无法如实覆盖的关键词单独列出，不做强行堆砌。
-- **学术化中英互译**：保留技术术语的英文原词，统一标题与日期格式，可选 STAR 润色。
-- **投递表单预测**：根据 JD 内容预测常见的 knockout 单选题，如工作授权、年限、学历、英语水平、工作地点。
-- **隐私处理**：上传文件仅在浏览器本地解析；发送前默认对姓名、邮箱、电话、证件号、社交主页 ID、地址、生日做脱敏占位替换；服务端不落盘、不记录请求日志。
+## Features
 
-## 目录结构
+- Rule engine. Runs offline, no network call, instant result. Keyword coverage split into required and nice-to-have. Hard requirement checks for years of experience, degree, English level, and publications, all pulled from the job description. Parsing checks for scanned PDFs, multi-column layouts, icon bullets, inconsistent dates, and missing contact info. STAR quality checks for quantified results, strong verbs, and vague phrasing, with suggested fixes. Bonus signal detection for top-tier publications, open source work, competition awards, and shipped products.
+- Semantic evaluation. Needs a configured model. Simulates a six-second recruiter screen and a hiring manager's technical read. Outputs a verdict, a seniority match, a skill radar, strengths, gaps, risk flags, and likely interview questions.
+- STAR rewrite. Needs a configured model. Shows original and rewritten text side by side for each bullet, tagged with S, T, A, R, and matched keywords. Never invents experience. Missing numbers get a placeholder such as `[X%]`. Keywords the resume cannot honestly support are listed on their own, not forced into the text.
+- Translation. Needs a configured model. Chinese to English and back, in an academic resume register. Technical terms stay in English.
+- Application form prediction. Guesses the knockout questions a job portal is likely to ask: work authorization, years of experience, degree, English level, location.
+
+## Project layout
 
 ```
-server/             纯逻辑模块：评分引擎、Prompt、鉴权与配额，不含前端代码
-netlify/functions/  Netlify Functions（/api/verify /api/score /api/llm）
-src/                 前端源码，构建输入
-scripts/build.mjs    构建脚本：复制 src 到 dist，自托管 PDF.js 与 Mammoth，混淆 app.js
-scripts/dev.mjs      本地开发服务器，无需 Netlify CLI
+server/             scoring engine, prompts, auth, quota — no frontend code
+netlify/functions/  Netlify Functions: /api/verify /api/score /api/llm
+src/                 frontend source, build input
+scripts/build.mjs    copies src to dist, vendors PDF.js and Mammoth, obfuscates app.js
+scripts/dev.mjs      local dev server, no Netlify CLI needed
 ```
 
-## 本地运行
+## Run locally
 
 ```bash
 npm install
-cp .env.example .env   # 按需修改 ACCESS_CODES、LLM_API_KEY 等
-npm run dev             # http://localhost:8888
+cp .env.example .env
+npm run dev
 ```
 
-## 部署到 Netlify
+Open `http://localhost:8888`.
 
-1. 执行 `npm run build`，在本地验证构建产物位于 `dist/`。
-2. 新建 Netlify 站点并连接本仓库（或使用 `netlify deploy`）。构建命令为 `npm run build`，发布目录为 `dist`，Functions 目录为 `netlify/functions`；这些配置已写入 `netlify.toml`，通常无需手动修改。
-3. 在 Netlify 的 Site configuration → Environment variables 中配置以下变量（不要写入仓库）：
-   - `ACCESS_CODES`：格式为 `姓名:访问码,姓名2:访问码2`。留空则站点进入公开模式，任何访问者无需密码即可使用；配置后恢复逐人鉴权，单个码泄露时可单独吊销，不影响其他人。
-   - `LLM_API_KEY` / `LLM_BASE_URL` / `LLM_MODEL`：模型服务商的调用凭证。留空时仅规则评分可用，访问者仍可在前端“设置”中填入自己的 Key 使用 AI 功能。
-   - `DAILY_QUOTA`：AI 调用的每日次数上限。公开模式下该额度由所有访问者共享。
-   - `ALLOWED_ORIGINS`：部署后填写站点域名（如 `https://xxx.netlify.app`），API 会拒绝来自其他来源的请求。
-   - `DOMAIN_LOCK`：构建时写入前端 JS，使代码只能在该域名下运行，防止整站被下载后在别处托管。
+## Deploy to Netlify
 
-## 访问控制与数据保护
+1. Run `npm run build` and check the output in `dist`.
+2. Create a Netlify site from this repository, or run `netlify deploy`. Build command is `npm run build`, publish directory is `dist`, functions directory is `netlify/functions`. These are already set in `netlify.toml`.
+3. Set these under Site configuration, Environment variables. Do not commit them to the repository.
+   - `ACCESS_CODES`: format is `name:code`, comma separated. Leave empty and the site runs open, no code needed. Set it and each person gets a separate code, so one leak does not affect the rest.
+   - `LLM_API_KEY`, `LLM_BASE_URL`, `LLM_MODEL`: credentials for the model provider. Leave empty and only rule scoring runs. Visitors can still paste their own key under Settings.
+   - `DAILY_QUOTA`: daily call limit for model requests. Shared across all visitors in open mode.
+   - `ALLOWED_ORIGINS`: the site's own domain after deploy, e.g. `https://xxx.netlify.app`. Requests from elsewhere are rejected.
+   - `DOMAIN_LOCK`: baked into the frontend at build time so the script only runs on that domain.
 
-将工具部署到 Netlify 这类公开地址后，主要风险不是前端代码被查看（浏览器本身就能看到前端代码），而是他人绕过站点入口直接调用后端接口、消耗模型额度，或截获简历数据。项目采取以下措施：
+## Access control and data handling
 
-Prompt 与评分规则只存放在服务端的 `server/` 目录，运行于 Netlify Functions 中，前端代码不包含这部分逻辑，只接收结构化的 JSON 结果。`ALLOWED_ORIGINS` 限制 API 只接受站点自身发出的请求，拦截大多数直接调用脚本和爬虫探测。配置 `ACCESS_CODES` 后，每个接收者使用独立的码，验证失败按固定延时响应以防止暴力枚举，AI 调用按码计入每日额度，规则评分不占用额度；单个码泄露时删除对应项即可单独吊销。接收者也可以在前端“设置”中填入自己的模型 Key，这样消耗的是其本人的额度而非站点方的 Key；服务端限制了可调用的 Base URL 白名单，避免被当作任意代理使用。
+Resumes are parsed in the browser. The file itself is never uploaded. By default, names, emails, phone numbers, ID numbers, social handles, addresses, and birthdates are masked before any request leaves the browser. The server is stateless, keeps no database, and logs no request body. Request size is capped near 80KB.
 
-构建阶段使用 `javascript-obfuscator` 对 `app.js` 进行标识符哈希化、字符串数组加密和控制流扁平化处理，并可通过 `DOMAIN_LOCK` 使代码只能在指定域名下运行；这类混淆会提高逆向成本,但无法做到绝对防护，真正起作用的是上述服务端隔离与鉴权机制。页面设置了 `X-Robots-Tag: noindex, nofollow` 及对应 meta 标签，不会被搜索引擎收录。响应头包含 CSP（禁止内联脚本，限制 `connect-src` 仅访问同源 `/api/*`）、`frame-ancestors 'none'`、`X-Content-Type-Options`、HSTS，降低被嵌入钓鱼页或遭受 XSS 攻击的风险。
+**Resumes are not stored anywhere, by design.**
 
-简历文件仅在浏览器本地解析，原件不会上传；发送前默认对姓名、联系方式、证件号、社交主页 ID 做脱敏处理；服务端 Functions 无状态，不写数据库，不记录请求体日志；请求体大小上限约 80KB，防止异常请求占用资源。
+Prompts and scoring rules live only in `server/`, inside Netlify Functions. The frontend never receives that logic, only the resulting JSON. `ALLOWED_ORIGINS` blocks requests that don't come from the site itself. With `ACCESS_CODES` set, each person uses a separate code, failed checks get a fixed delay to slow brute force, and model calls count against that code's daily quota while rule scoring stays free. Visitors can paste their own model key under Settings, so their usage counts against their own account, not the site owner's. The server also restricts which base URLs it will forward requests to.
 
-如需更高强度的防护，可将访问码改为更长的随机串并定期轮换，或在 Netlify 之外加一层 Cloudflare Access 之类的入口校验。对内部小范围分享的场景，上述措施已能覆盖常见的滥用方式。
+The build step obfuscates `app.js`: identifiers are hashed, strings are encrypted, control flow is flattened. `DOMAIN_LOCK` ties the script to one domain. This raises the cost of copying the code, not more than that — the real protection is the server-side separation described above. Pages are marked noindex and nofollow. Response headers carry a content security policy that blocks inline scripts and limits `connect-src` to the site's own `/api/*`, plus `frame-ancestors none`, `X-Content-Type-Options`, and HSTS.
 
-## 重要声明
-
-所有改写与翻译均基于用户提供的真实经历，不会捏造公司、职位、时间、技术栈或指标；缺失的数据会用占位符标出，需要用户本人核实后再投递。AI 语义评估与面试预测仅供参考，不构成录用承诺。
+For stricter access, rotate codes on a schedule, use longer random strings, or add a login layer such as Cloudflare Access in front of Netlify.

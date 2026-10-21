@@ -67,12 +67,12 @@
     let t = String(s).trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '');
     const a = t.indexOf('{');
     const b = t.lastIndexOf('}');
-    if (a < 0 || b < a) throw new Error('AI 返回内容无法解析，请重试');
+    if (a < 0 || b < a) throw new Error('返回内容无法解析，请重试');
     t = t.slice(a, b + 1);
     try { return JSON.parse(t); }
     catch {
       try { return JSON.parse(t.replace(/,\s*([}\]])/g, '$1')); }
-      catch { throw new Error('AI 返回的 JSON 不完整（可能被截断），请重试或换用更大上下文的模型'); }
+      catch { throw new Error('返回的 JSON 不完整（可能被截断），请重试或换用更大上下文的模型'); }
     }
   }
 
@@ -227,7 +227,7 @@
       onProgress && onProgress(out);
     }
     const ei = out.indexOf('@@ERROR@@');
-    if (ei >= 0) throw new Error('AI 流中断：' + out.slice(ei + 9));
+    if (ei >= 0) throw new Error('生成中断：' + out.slice(ei + 9));
     refreshQuota();
     return out;
   }
@@ -272,7 +272,7 @@
     state.llmAvailable = d.llm;
     const pill = $('#quotaPill');
     pill.classList.add('ok');
-    pill.textContent = state.byok?.key ? `已验证 · 自带 Key` : d.llm ? `已验证 · AI 额度 ${Math.max(0, d.quota.limit - d.quota.used)}/${d.quota.limit}` : '已验证 · 仅规则评分';
+    pill.textContent = state.byok?.key ? `已验证 · 自带 Key` : d.llm ? `已验证 · 剩余额度 ${Math.max(0, d.quota.limit - d.quota.used)}/${d.quota.limit}` : '已验证 · 仅规则评分';
   }
 
   async function refreshQuota() {
@@ -309,10 +309,10 @@
       $('#results').scrollIntoView({ behavior: 'smooth', block: 'start' });
 
       if ($('#useAI').checked && aiReady()) {
-        setBusy(true, 'AI 评估中…');
-        renderPanelLoading('AI 评估中…');
+        setBusy(true, '语义评估中…');
+        renderPanelLoading('语义评估中…');
         try {
-          const txt = await apiStream({ task: 'analyze', jd: input.jd, resume: input.resume, rule: slimRule(rule) }, (s) => renderPanelLoading(`AI 评估中… 已接收 ${s.length} 字符`));
+          const txt = await apiStream({ task: 'analyze', jd: input.jd, resume: input.resume, rule: slimRule(rule) }, (s) => renderPanelLoading(`语义评估中… 已接收 ${s.length} 字符`));
           state.ai = parseLoose(txt);
         } catch (e) {
           toast(e.message, true, 5000);
@@ -326,7 +326,7 @@
           toast(`适配度 ${finalScore()} < ${th}，已为你打开改写窗口`);
           openRewrite(true);
         } else {
-          toast(`适配度 ${finalScore()} < ${th}。配置 AI 后可自动生成改写。`, false, 5000);
+          toast(`适配度 ${finalScore()} < ${th}。配置模型后可自动生成改写。`, false, 5000);
         }
       }
     } catch (e) {
@@ -371,7 +371,7 @@
     pb.textContent = `机筛通过概率：${passName}`;
     $('#roleLabel').textContent = `识别岗位：${r.role.label} · JD ${r.lang.jd === 'en' ? '英文' : '中文'} / 简历 ${r.lang.resume === 'en' ? '英文' : '中文'}`;
     $('#passReasons').innerHTML = r.pass.reasons.map((x) => `<li>${esc(x)}</li>`).join('');
-    $('#scoreFormula').textContent = ai ? `综合分 = 规则分 ${r.scores.overall} × 0.6 + AI 语义分 ${ai.semantic_score} × 0.4` : `综合分 = 规则引擎分（未启用 AI 语义评估）`;
+    $('#scoreFormula').textContent = ai ? `综合分 = 规则分 ${r.scores.overall} × 0.6 + 语义分 ${ai.semantic_score} × 0.4` : `综合分 = 规则引擎分（未启用语义评估）`;
 
     $('#bars').innerHTML = [
       bar('关键词匹配（ATS 字面命中）', r.scores.keyword, '40%'),
@@ -379,7 +379,7 @@
       bar('STAR 表述质量', r.scores.quality, '20%'),
       bar('ATS 可解析性', r.scores.ats, '15%'),
       bar('岗位加分信号', r.scores.signals, '10%'),
-      bar('AI 语义匹配（用人经理视角）', ai ? ai.semantic_score : null, ai ? '融合 40%' : '未启用')
+      bar('语义匹配（用人经理视角）', ai ? ai.semantic_score : null, ai ? '融合 40%' : '未启用')
     ].join('');
     animateBars($('#bars'));
 
@@ -483,7 +483,7 @@
 
   function renderPanel(ai) {
     if (!ai) {
-      $('#panePanel').innerHTML = `<div class="empty">${aiReady() ? '勾选"启用 AI 语义评估"后重新分析即可查看 HR 与用人经理视角。' : '服务端未配置模型，可在右上角"设置"中填写自带 Key。'}</div>`;
+      $('#panePanel').innerHTML = `<div class="empty">${aiReady() ? '勾选"启用语义评估"后重新分析即可查看 HR 与用人经理视角。' : '服务端未配置模型，可在右上角"设置"中填写自带 Key。'}</div>`;
       return;
     }
     const vName = { strong_yes: '强烈推荐面试', yes: '推荐面试', maybe: '待定', no: '不推荐' };
@@ -517,7 +517,7 @@
   function renderInterview(ai) {
     $('#paneInterview').innerHTML = ai?.interview_questions?.length
       ? `<ul class="list">${ai.interview_questions.map((q, i) => `<li class="item"><div class="t">Q${i + 1}. ${esc(q.q)}</div><div class="d muted">考察点：${esc(q.intent)}</div></li>`).join('')}</ul>`
-      : '<div class="empty">启用 AI 语义评估后，将基于简历与 JD 的差距预测面试问题。</div>';
+      : '<div class="empty">启用语义评估后，将基于简历与 JD 的差距预测面试问题。</div>';
   }
 
   function renderForm(r) {
