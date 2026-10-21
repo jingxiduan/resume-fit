@@ -38,7 +38,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 export async function authenticate(req) {
   if (!checkOrigin(req)) return { error: json({ error: '来源不被允许' }, 403) };
   const codes = parseCodes();
-  if (!codes.length) return { error: json({ error: '服务端未配置 ACCESS_CODES' }, 503) };
+  // 未配置 ACCESS_CODES 时视为公开模式：跳过逐人鉴权，所有访问共享同一个每日额度。
+  if (!codes.length) return { label: 'public' };
   const given = (req.headers.get('x-access-code') || '').trim();
   const g = sha(given);
   const hit = given && codes.find((c) => timingSafeEqual(sha(c.code), g));

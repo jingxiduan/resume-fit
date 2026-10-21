@@ -8,6 +8,7 @@
 
   const state = {
     code: localStorage.getItem('rf_code') || '',
+    verified: false,
     byok: JSON.parse(localStorage.getItem('rf_byok') || 'null'),
     llmAvailable: false,
     rule: null,
@@ -253,6 +254,7 @@
 
   function logout() {
     state.code = '';
+    state.verified = false;
     localStorage.removeItem('rf_code');
     $('#quotaPill').textContent = '未验证';
     $('#quotaPill').classList.remove('ok');
@@ -266,6 +268,7 @@
   }
 
   function renderQuota(d) {
+    state.verified = true;
     state.llmAvailable = d.llm;
     const pill = $('#quotaPill');
     pill.classList.add('ok');
@@ -282,7 +285,7 @@
     const rs = $('#resume').value.trim();
     if (jd.length < 30) { toast('请先粘贴完整 JD', true); $('#jd').focus(); return null; }
     if (rs.length < 30) { toast('请先上传或粘贴简历', true); $('#resume').focus(); return null; }
-    if (!state.code) { showGate(); return null; }
+    if (!state.verified) { showGate(); return null; }
     return { jd, resume: preparedResume() };
   }
 
@@ -650,7 +653,7 @@
   async function runTranslate() {
     const rs = $('#resume').value.trim();
     if (rs.length < 30) return toast('请先上传或粘贴简历', true);
-    if (!state.code) return showGate();
+    if (!state.verified) return showGate();
     if (!aiReady()) return toast('服务端未配置模型，请在"设置"中填写自带 Key', true);
     $('#trRun').disabled = true;
     $('#trProgress').hidden = false;
@@ -750,7 +753,11 @@
     };
     $('#byokClear').onclick = () => { state.byok = null; localStorage.removeItem('rf_byok'); loadSettingsForm(); toast('已清除'); refreshQuota(); };
 
-    $('#btnLogout').onclick = () => { logout(); showGate(); };
+    $('#btnLogout').onclick = async () => {
+      logout();
+      try { renderQuota(await verify('')); } // 公开模式（未配置 ACCESS_CODES）下匿名验证会直接成功
+      catch { showGate(); }
+    };
 
     $('#gateForm').addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -788,9 +795,9 @@
   async function init() {
     bind();
     updateCounts();
-    if (!state.code) return showGate();
+    // 先尝试匿名验证：服务端未配置 ACCESS_CODES 时会直接放行（公开模式），无需弹出登录框。
     try { renderQuota(await verify(state.code)); }
-    catch (e) { logout(); showGate(e.message); }
+    catch (e) { logout(); showGate(state.code ? e.message : ''); }
   }
 
   init();
