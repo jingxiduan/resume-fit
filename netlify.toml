@@ -1,0 +1,35 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+  functions = "netlify/functions"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+[functions]
+  node_bundler = "esbuild"
+
+# 全站安全响应头
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow, noarchive, nosnippet"
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=(), interest-cohort=()"
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains"
+    Cross-Origin-Opener-Policy = "same-origin"
+    Content-Security-Policy = "default-src 'self'; script-src 'self'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+
+[[headers]]
+  for = "/api/*"
+  [headers.values]
+    Cache-Control = "no-store"
+
+# 屏蔽常见探测路径
+[[redirects]]
+  from = "/.env*"
+  to = "/404"
+  status = 404
+  force = true

@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow, noarchive" />
+  <meta name="referrer" content="strict-origin-when-cross-origin" />
+  <title>ResumeFit · 国际化 AI 岗位简历机筛适配</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%236366f1'/%3E%3Ctext x='32' y='42' font-size='28' text-anchor='middle' fill='white' font-family='Arial' font-weight='700'%3ERF%3C/text%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo">RF</div>
+      <div>
+        <div class="brand-name">ResumeFit</div>
+        <div class="brand-sub">ML · LLM · Multimodal · Data Engineering 简历机筛适配</div>
+      </div>
+    </div>
+    <div class="top-actions">
+      <span id="quotaPill" class="pill">未验证</span>
+      <button id="btnSettings" class="btn ghost sm" type="button">设置</button>
+      <button id="btnLogout" class="btn ghost sm" type="button">退出</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="hero">
+      <h1>先过机器，再过人。</h1>
+      <p>模拟海外 ATS 机筛 + HR 初筛 + 用人团队技术面评估，给出百分制适配度；不达标时自动生成更贴合 JD 的 STAR 学术化表述，并支持中英互译。</p>
+      <ol class="steps">
+        <li><b>1</b>粘贴 JD</li>
+        <li><b>2</b>上传 / 粘贴简历</li>
+        <li><b>3</b>一键分析</li>
+        <li><b>4</b>按建议改写 / 互译</li>
+      </ol>
+    </section>
+
+    <section class="grid2">
+      <div class="card">
+        <div class="card-head">
+          <h2>目标 JD <span class="en">Job Description</span></h2>
+          <span class="counter" id="jdCount">0 字</span>
+        </div>
+        <div class="row">
+          <label class="field">
+            <span>岗位方向</span>
+            <select id="role">
+              <option value="auto">自动识别</option>
+              <option value="ml">机器学习工程师 ML Engineer</option>
+              <option value="algo">搜广推算法 Ranking / Ads</option>
+              <option value="llm">大模型算法 LLM</option>
+              <option value="mm">多模态算法 Multimodal</option>
+              <option value="de">数据工程师 Data Engineer</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>改写 / 输出语言</span>
+            <select id="targetLang">
+              <option value="auto">跟随 JD 语言</option>
+              <option value="en">English</option>
+              <option value="zh">简体中文</option>
+            </select>
+          </label>
+        </div>
+        <textarea id="jd" spellcheck="false" placeholder="粘贴完整 JD（含 Responsibilities / Requirements / Preferred 段落，分段越完整，必备与加分关键词区分越准确）"></textarea>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>你的简历 <span class="en">Resume</span></h2>
+          <span class="counter" id="resumeCount">0 字</span>
+        </div>
+        <label class="dropzone" id="dropzone">
+          <input type="file" id="file" accept=".pdf,.docx,.txt,.md" hidden />
+          <div class="dz-icon">⇪</div>
+          <div><b>拖入或点击上传</b> PDF / DOCX / TXT</div>
+          <div class="muted sm">文件仅在浏览器本地解析，不会上传原件</div>
+        </label>
+        <textarea id="resume" spellcheck="false" placeholder="或直接粘贴简历全文"></textarea>
+        <div class="row between">
+          <label class="switch">
+            <input type="checkbox" id="redact" checked />
+            <span class="slider"></span>
+            <span>发送前自动脱敏（姓名 / 邮箱 / 电话 / 证件号 / 主页 ID）</span>
+          </label>
+          <button class="link" id="btnPreviewRedact" type="button">预览脱敏结果</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="actions card">
+      <div class="actions-main">
+        <button class="btn primary lg" id="btnAnalyze" type="button">一键分析适配度</button>
+        <button class="btn lg" id="btnRewrite" type="button">生成匹配 JD 的改写</button>
+        <button class="btn lg" id="btnTranslate" type="button">学术化中英互译</button>
+      </div>
+      <div class="actions-opts">
+        <label class="check"><input type="checkbox" id="useAI" checked /> 启用 AI 语义评估（HR + 用人经理视角）</label>
+        <label class="check"><input type="checkbox" id="autoRewrite" checked /> 适配度低于 <input type="number" id="threshold" value="85" min="50" max="100" /> 分时自动弹出改写窗口</label>
+      </div>
+    </section>
+
+    <section id="results" class="results" hidden>
+      <div class="banner" id="langBanner" hidden>
+        <div><b>语言不一致：</b><span id="langBannerText"></span></div>
+        <button class="btn primary sm" id="btnBannerTranslate" type="button">一键转换</button>
+      </div>
+
+      <div class="score-wrap">
+        <div class="card score-card">
+          <div class="ring-box">
+            <svg viewBox="0 0 120 120" class="ring">
+              <circle cx="60" cy="60" r="52" class="ring-bg" />
+              <circle cx="60" cy="60" r="52" class="ring-fg" id="ringFg" />
+            </svg>
+            <div class="ring-text">
+              <div class="ring-num" id="scoreNum">0</div>
+              <div class="ring-label">综合适配度</div>
+            </div>
+          </div>
+          <div class="score-meta">
+            <div class="pass" id="passBadge">机筛通过概率：-</div>
+            <div class="muted sm" id="roleLabel"></div>
+            <ul class="reasons" id="passReasons"></ul>
+            <div class="muted xs" id="scoreFormula"></div>
+          </div>
+        </div>
+        <div class="card bars-card">
+          <h3>分项得分</h3>
+          <div id="bars"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <nav class="tabs" id="tabs">
+          <button data-tab="actions" class="active" type="button">行动清单</button>
+          <button data-tab="keywords" type="button">关键词</button>
+          <button data-tab="knockouts" type="button">硬性门槛</button>
+          <button data-tab="ats" type="button">ATS 解析</button>
+          <button data-tab="quality" type="button">STAR 表述</button>
+          <button data-tab="panel" type="button">招聘方视角</button>
+          <button data-tab="interview" type="button">面试预测</button>
+          <button data-tab="form" type="button">投递表单</button>
+        </nav>
+        <div class="tabpane active" data-pane="actions" id="paneActions"></div>
+        <div class="tabpane" data-pane="keywords" id="paneKeywords"></div>
+        <div class="tabpane" data-pane="knockouts" id="paneKnockouts"></div>
+        <div class="tabpane" data-pane="ats" id="paneAts"></div>
+        <div class="tabpane" data-pane="quality" id="paneQuality"></div>
+        <div class="tabpane" data-pane="panel" id="panePanel"></div>
+        <div class="tabpane" data-pane="interview" id="paneInterview"></div>
+        <div class="tabpane" data-pane="form" id="paneForm"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span>© ResumeFit · All rights reserved · 仅供求职辅助使用</span>
+    <span>简历内容仅用于本次计算，服务端不存储、不记录日志</span>
+  </footer>
+
+  <!-- 访问码 -->
+  <div class="modal" id="gate" hidden>
+    <div class="modal-card narrow">
+      <h2>输入访问码</h2>
+      <p class="muted">本工具仅限受邀使用。请向分享者索取个人访问码。</p>
+      <form id="gateForm">
+        <input type="password" id="gateCode" autocomplete="off" placeholder="访问码" />
+        <div class="err" id="gateErr"></div>
+        <button class="btn primary block" type="submit" id="gateBtn">进入</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- 设置 -->
+  <div class="modal" id="settings" hidden>
+    <div class="modal-card narrow">
+      <div class="modal-head"><h2>设置 · 自带模型 Key（可选）</h2><button class="x" data-close type="button">×</button></div>
+      <p class="muted sm">填写后 AI 请求使用你自己的 Key，不消耗分享者额度。Key 只保存在本浏览器，请求时经服务端转发且不落盘。</p>
+      <label class="field"><span>服务商</span>
+        <select id="byokPreset">
+          <option value="">不使用（使用分享者额度）</option>
+          <option value="openai">OpenAI</option>
+          <option value="deepseek">DeepSeek</option>
+          <option value="qwen">通义千问 DashScope</option>
+          <option value="moonshot">Moonshot Kimi</option>
+          <option value="zhipu">智谱 GLM</option>
+          <option value="siliconflow">SiliconFlow</option>
+          <option value="openrouter">OpenRouter</option>
+          <option value="gemini">Google Gemini</option>
+        </select>
+      </label>
+      <label class="field"><span>API Key</span><input type="password" id="byokKey" autocomplete="off" placeholder="sk-..." /></label>
+      <label class="field"><span>Base URL</span><input type="text" id="byokBase" placeholder="https://api.openai.com/v1" /></label>
+      <label class="field"><span>模型</span><input type="text" id="byokModel" placeholder="gpt-4o-mini" /></label>
+      <div class="row end">
+        <button class="btn ghost" id="byokClear" type="button">清除</button>
+        <button class="btn primary" id="byokSave" type="button">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 脱敏预览 -->
+  <div class="modal" id="redactModal" hidden>
+    <div class="modal-card">
+      <div class="modal-head"><h2>脱敏预览 <span class="muted sm" id="redactStat"></span></h2><button class="x" data-close type="button">×</button></div>
+      <pre class="pre" id="redactPre"></pre>
+    </div>
+  </div>
+
+  <!-- 改写窗口 -->
+  <div class="modal" id="rewriteModal" hidden>
+    <div class="modal-card wide">
+      <div class="modal-head">
+        <h2>更匹配 JD 的经历表述 <span class="tag">STAR</span></h2>
+        <div class="row">
+          <select id="rwLang">
+            <option value="en">English</option>
+            <option value="zh">简体中文</option>
+          </select>
+          <button class="btn sm" id="rwRegen" type="button">重新生成</button>
+          <button class="x" data-close type="button">×</button>
+        </div>
+      </div>
+      <div class="rw-note">原则：只改写表述，不虚构经历。<mark>[X%]</mark> 等占位符需你用真实数据替换；无法如实覆盖的 JD 关键词会单独列出。</div>
+      <div id="rwProgress" class="progress" hidden><div class="spinner"></div><span id="rwProgressText">生成中…</span></div>
+      <div id="rwBody" class="rw-body"></div>
+      <div class="modal-foot">
+        <button class="btn" id="rwCopyAll" type="button">复制全部改写</button>
+        <button class="btn" id="rwDownloadMd" type="button">下载 Markdown</button>
+        <button class="btn primary" id="rwApply" type="button">用改写替换简历并重新评分</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 互译窗口 -->
+  <div class="modal" id="translateModal" hidden>
+    <div class="modal-card wide">
+      <div class="modal-head">
+        <h2>学术化中英互译</h2>
+        <div class="row">
+          <select id="trLang">
+            <option value="en">译为 English</option>
+            <option value="zh">译为 简体中文</option>
+          </select>
+          <label class="check"><input type="checkbox" id="trPolish" checked /> 同时按 STAR 润色</label>
+          <button class="btn sm primary" id="trRun" type="button">开始</button>
+          <button class="x" data-close type="button">×</button>
+        </div>
+      </div>
+      <div id="trProgress" class="progress" hidden><div class="spinner"></div><span id="trProgressText">翻译中…</span></div>
+      <textarea id="trOut" class="tr-out" spellcheck="false" placeholder="译文将显示在这里，可直接编辑"></textarea>
+      <div class="modal-foot">
+        <button class="btn" id="trCopy" type="button">复制</button>
+        <button class="btn" id="trDownload" type="button">下载 TXT</button>
+        <button class="btn primary" id="trApply" type="button">用译文替换简历并重新评分</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" hidden></div>
+  <script src="app.js"></script>
+</body>
+</html>
